@@ -27,8 +27,9 @@ jobs:
               debugPrint('Firebase init failed as expected: $e');
             }
             runApp(const MaterialApp(
-              home: Scaffold(body: Center(child: Text('All plugins loaded OK'))),
+              home: Scaffold(body: Center(child: Text('FULL PLUGIN TEST v2'))),
             ));
+
           }
           EOF
       - run: |
