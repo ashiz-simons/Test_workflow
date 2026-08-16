@@ -1,9 +1,9 @@
-name: iOS-blank-test
+name: iOS-blank-test-firebase
 on:
   workflow_dispatch:
 jobs:
   build-ios:
-    name: Blank Flutter iOS Build
+    name: Blank Flutter iOS Build with Firebase
     runs-on: macos-latest
     steps:
       - uses: subosito/flutter-action@v2
@@ -11,6 +11,19 @@ jobs:
           channel: 'stable'
           architecture: x64
       - run: flutter create hello_world
+      - run: |
+          cat > hello_world/lib/main.dart << 'EOF'
+          import 'package:flutter/material.dart';
+          import 'package:firebase_core/firebase_core.dart';
+
+          void main() async {
+            WidgetsFlutterBinding.ensureInitialized();
+            await Firebase.initializeApp();
+            runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('Firebase OK')))));
+          }
+          EOF
+      - run: flutter pub add firebase_core
+        working-directory: hello_world
       - run: flutter pub get
         working-directory: hello_world
       - run: flutter build ios --release --no-codesign
@@ -20,13 +33,14 @@ jobs:
       - run: mv Runner.app/ Payload
         working-directory: hello_world/build/ios/iphoneos
       - name: Zip output
-        run: zip -qq -r -9 BlankIpaExport.ipa Payload
+        run: zip -qq -r -9 BlankFirebaseIpaExport.ipa Payload
         working-directory: hello_world/build/ios/iphoneos
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: hello_world/build/ios/iphoneos/BlankIpaExport.ipa
+          file: hello_world/build/ios/iphoneos/BlankFirebaseIpaExport.ipa
           tag: v1.0
           overwrite: true
-          body: "Blank Flutter test build"
+          body: "Blank Flutter + Firebase test build"
+
