@@ -1,9 +1,9 @@
-name: iOS-blank-test-firebase
+name: iOS-blank-test-full
 on:
   workflow_dispatch:
 jobs:
   build-ios:
-    name: Blank Flutter iOS Build with Firebase
+    name: Blank Flutter iOS Build - Full Plugin Set
     runs-on: macos-latest
     steps:
       - uses: subosito/flutter-action@v2
@@ -18,11 +18,45 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            await Firebase.initializeApp();
-            runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('Firebase OK')))));
+            try {
+              await Firebase.initializeApp();
+            } catch (e) {
+              // No GoogleService-Info.plist in this blank app, so this is
+              // expected to throw. We only care whether Dart reaches here
+              // at all (i.e. every plugin's native side linked/loaded ok).
+              debugPrint('Firebase init failed as expected: $e');
+            }
+            runApp(const MaterialApp(
+              home: Scaffold(body: Center(child: Text('All plugins loaded OK'))),
+            ));
           }
           EOF
-      - run: flutter pub add firebase_core
+      - run: |
+          cat >> hello_world/pubspec.yaml << 'EOF'
+
+          dependency_overrides: {}
+          EOF
+      - name: Add plugins matching Anva's pubspec
+        run: |
+          flutter pub add \
+            audioplayers:^6.0.0 \
+            flutter_secure_storage:^9.0.0 \
+            webview_flutter:^4.7.0 \
+            google_maps_flutter:^2.9.0 \
+            geocoding:^3.0.0 \
+            geolocator:^11.0.0 \
+            permission_handler:^11.3.0 \
+            image_picker:^1.1.0 \
+            url_launcher:^6.3.0 \
+            vibration:^2.0.0 \
+            firebase_messaging:^15.0.0 \
+            flutter_local_notifications:^17.0.0 \
+            firebase_auth:^5.7.0 \
+            flutter_callkit_incoming:^2.0.4 \
+            uuid:^4.4.0 \
+            local_auth:^2.1.6 \
+            share_plus:^7.2.1 \
+            socket_io_client:^2.0.3+1
         working-directory: hello_world
       - run: flutter pub get
         working-directory: hello_world
@@ -33,14 +67,13 @@ jobs:
       - run: mv Runner.app/ Payload
         working-directory: hello_world/build/ios/iphoneos
       - name: Zip output
-        run: zip -qq -r -9 BlankFirebaseIpaExport.ipa Payload
+        run: zip -qq -r -9 BlankFullIpaExport.ipa Payload
         working-directory: hello_world/build/ios/iphoneos
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: hello_world/build/ios/iphoneos/BlankFirebaseIpaExport.ipa
+          file: hello_world/build/ios/iphoneos/BlankFullIpaExport.ipa
           tag: v1.0
           overwrite: true
-          body: "Blank Flutter + Firebase test build"
-
+          body: "Blank Flutter + full plugin set test build"
