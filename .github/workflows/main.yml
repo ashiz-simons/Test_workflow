@@ -1,71 +1,79 @@
-name: iOS-blank-test-full
+name: iOS-blank-test-realauth
 on:
   workflow_dispatch:
 jobs:
   build-ios:
-    name: Blank Flutter iOS Build - Full Plugin Set
+    name: Blank Flutter iOS - Real Firebase Auth Test
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v3
+        with:
+          path: anva-source
+
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           architecture: x64
+
       - run: flutter create hello_world
+
+      - name: Match Anva's bundle ID exactly
+        run: |
+          sed -i '' 's/com.example.helloWorld/com.nnamtech.anva-mobile/g' hello_world/ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Copy real GoogleService-Info.plist
+        run: cp anva-source/ios/Runner/GoogleService-Info.plist hello_world/ios/Runner/GoogleService-Info.plist
+
       - run: |
           cat > hello_world/lib/main.dart << 'EOF'
           import 'package:flutter/material.dart';
           import 'package:firebase_core/firebase_core.dart';
+          import 'package:firebase_auth/firebase_auth.dart';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
+            String status = 'Starting...';
             try {
-              await Firebase.initializeApp();
+              await Firebase.initializeApp().timeout(const Duration(seconds: 10));
+              status = 'Firebase init OK';
+              FirebaseAuth.instance.authStateChanges().listen((user) {
+                status = 'Auth state OK: ${user?.uid ?? "no user"}';
+              });
+              await Future.delayed(const Duration(seconds: 2));
             } catch (e) {
-              debugPrint('Firebase init failed as expected: $e');
+              status = 'FAILED: $e';
             }
-            runApp(const MaterialApp(
-              home: Scaffold(body: Center(child: Text('FULL PLUGIN TEST v2'))),
+            runApp(MaterialApp(
+              home: Scaffold(body: Center(child: Text('REAL AUTH TEST: $status'))),
             ));
           }
           EOF
-      - name: Add plugins matching Anva's pubspec
-        run: |
-          flutter pub add \
-            audioplayers:^6.0.0 \
-            flutter_secure_storage:^9.0.0 \
-            webview_flutter:^4.7.0 \
-            google_maps_flutter:^2.9.0 \
-            geocoding:^3.0.0 \
-            geolocator:^11.0.0 \
-            permission_handler:^11.3.0 \
-            image_picker:^1.1.0 \
-            url_launcher:^6.3.0 \
-            vibration:^2.0.0 \
-            firebase_messaging:^15.0.0 \
-            flutter_local_notifications:^17.0.0 \
-            firebase_auth:^5.7.0 \
-            flutter_callkit_incoming:^2.0.4 \
-            uuid:^4.4.0 \
-            local_auth:^2.1.6 \
-            share_plus:^7.2.1 \
-            socket_io_client:^2.0.3+1
+
+      - name: Add firebase_auth
+        run: flutter pub add firebase_core firebase_auth
         working-directory: hello_world
+
       - run: flutter pub get
         working-directory: hello_world
+
       - run: flutter build ios --release --no-codesign
         working-directory: hello_world
+
       - run: mkdir Payload
         working-directory: hello_world/build/ios/iphoneos
+
       - run: mv Runner.app/ Payload
         working-directory: hello_world/build/ios/iphoneos
+
       - name: Zip output
-        run: zip -qq -r -9 BlankFullIpaExport.ipa Payload
+        run: zip -qq -r -9 RealAuthTest.ipa Payload
         working-directory: hello_world/build/ios/iphoneos
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: hello_world/build/ios/iphoneos/BlankFullIpaExport.ipa
+          file: hello_world/build/ios/iphoneos/RealAuthTest.ipa
           tag: v1.0
           overwrite: true
-          body: "Blank Flutter + full plugin set test build"
+          body: "Real Firebase Auth test build"
